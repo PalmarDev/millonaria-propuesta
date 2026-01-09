@@ -3,6 +3,17 @@
 import { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 
+type Question = {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  hint: string;
+  isFinal?: boolean;
+};
+
+type FiftyState = { eliminate: number[] } | null;
+
 const PRIZES = [
   "$100",
   "$200",
@@ -14,10 +25,9 @@ const PRIZES = [
   "$8,000",
   "$16,000",
   "$32,000",
-];
+] as const;
 
-// ✅ EDITA estas preguntas a tu historia (nombres, chistes internos, etc.)
-const QUESTIONS = [
+const QUESTIONS: Question[] = [
   {
     id: 1,
     question: "Para calentar: ¿Cuál es mi color favorito?",
@@ -30,7 +40,7 @@ const QUESTIONS = [
     question: "Si salimos a comer, ¿qué me hace más feliz pedir contigo?",
     options: ["Pizza", "Sushi", "Hamburguesa", "Tacos"],
     correctIndex: 1,
-    hint: "Me encanto compartir tu primera vez.",
+    hint: "Me encantó compartir tu primera vez.",
   },
   {
     id: 3,
@@ -64,7 +74,7 @@ const QUESTIONS = [
     id: 7,
     question: "Si te digo 'vamos a hacer algo simple', ¿qué termina pasando?",
     options: [
-      "Terminamos comiendonos algo rico",
+      "Terminamos comiéndonos algo rico",
       "Nos reímos demasiado",
       "Se vuelve un plan épico",
       "Todas",
@@ -86,7 +96,6 @@ const QUESTIONS = [
     correctIndex: 3,
     hint: "No es pequeño… es grande.",
   },
-  // ✅ La última es la propuesta (no es “correcta” por lógica: la manejamos aparte)
   {
     id: 10,
     question: "Última pregunta (la más importante): ¿Quieres ser mi novia? 💖",
@@ -96,47 +105,42 @@ const QUESTIONS = [
       "Obvio que sí ✨",
       "Tengo que pensarlo…",
     ],
-    correctIndex: 0, // da igual, la manejamos especial
+    correctIndex: 0,
     hint: "Respira… y elige lo que sientes 😌",
     isFinal: true,
   },
 ];
 
-function classNames(...xs) {
+function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
 export default function Page() {
   const total = QUESTIONS.length;
 
-  const [index, setIndex] = useState(0);
-  const [locked, setLocked] = useState(false);
-  const [selected, setSelected] = useState(null);
+  const [index, setIndex] = useState<number>(0);
+  const [locked, setLocked] = useState<boolean>(false);
+  const [selected, setSelected] = useState<number | null>(null);
 
-  const [status, setStatus] = useState("PLAYING"); // PLAYING | LOSE | WIN
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [status, setStatus] = useState<"PLAYING" | "LOSE" | "WIN">("PLAYING");
+  const [showConfirm, setShowConfirm] = useState<boolean>(false);
 
   // Lifelines
-  const [used5050, setUsed5050] = useState(false);
-  const [usedHint, setUsedHint] = useState(false);
-  const [usedSecondChance, setUsedSecondChance] = useState(false);
-  const [secondChanceArmed, setSecondChanceArmed] = useState(false);
+  const [used5050, setUsed5050] = useState<boolean>(false);
+  const [usedHint, setUsedHint] = useState<boolean>(false);
+  const [usedSecondChance, setUsedSecondChance] = useState<boolean>(false);
+  const [secondChanceArmed, setSecondChanceArmed] = useState<boolean>(false);
 
   const q = QUESTIONS[index];
   const prize = PRIZES[index] ?? "$∞";
 
-  const eliminated = useMemo(() => {
-    // Guardamos eliminadas solo cuando se activa 50/50 (estado simple: lo calculamos una vez y “congelamos”)
-    return null;
-  }, []);
-
-  const [fiftyState, setFiftyState] = useState(null); // { eliminate: number[] } o null
+  const [fiftyState, setFiftyState] = useState<FiftyState>(null);
 
   const availableOptions = useMemo(() => {
     if (!fiftyState) return q.options.map((t, i) => ({ t, i, hidden: false }));
-    const hidden = new Set(fiftyState.eliminate);
+    const hidden = new Set<number>(fiftyState.eliminate);
     return q.options.map((t, i) => ({ t, i, hidden: hidden.has(i) }));
-  }, [q, fiftyState]);
+  }, [q.options, fiftyState]);
 
   function resetForNext() {
     setLocked(false);
@@ -167,7 +171,7 @@ export default function Page() {
     });
   }
 
-  function onPick(i) {
+  function onPick(i: number) {
     if (locked || status !== "PLAYING") return;
     if (fiftyState?.eliminate?.includes(i)) return;
 
@@ -176,20 +180,22 @@ export default function Page() {
   }
 
   function confirmAnswer() {
+    if (selected === null) return;
+
     setShowConfirm(false);
     setLocked(true);
 
-    // Final romántico: cualquier respuesta "Sí" gana. Si elige "Tengo que pensarlo…" la llevamos a un flow tierno.
+    // Final romántico
     if (q.isFinal) {
       const pickedText = q.options[selected];
       const isYes =
         pickedText.toLowerCase().includes("sí") ||
+        pickedText.toLowerCase().includes("si") ||
         pickedText.toLowerCase().includes("obvio");
+
       if (isYes) {
         winGame();
       } else {
-        // En vez de “perder”, lo transformamos en un final dulce:
-        // desbloqueamos y mostramos un “intenta otra vez” sin humillar.
         setTimeout(() => {
           setLocked(false);
           setSelected(null);
@@ -205,14 +211,9 @@ export default function Page() {
 
     setTimeout(() => {
       if (correct) {
-        // Pasa al siguiente
-        if (index === total - 1) {
-          winGame();
-        } else {
-          goNext();
-        }
+        if (index === total - 1) winGame();
+        else goNext();
       } else {
-        // Si tenía segunda oportunidad armada, la consume y deja reintentar
         if (secondChanceArmed) {
           setSecondChanceArmed(false);
           setUsedSecondChance(true);
@@ -233,7 +234,6 @@ export default function Page() {
     // Elimina 2 opciones incorrectas al azar
     const wrongs = q.options.map((_, i) => i).filter((i) => i !== q.correctIndex);
 
-    // shuffle simple
     for (let i = wrongs.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [wrongs[i], wrongs[j]] = [wrongs[j], wrongs[i]];
@@ -297,6 +297,7 @@ export default function Page() {
               )}>
               50/50
             </button>
+
             <button
               onClick={useHint}
               disabled={usedHint || locked || status !== "PLAYING"}
@@ -308,6 +309,7 @@ export default function Page() {
               )}>
               Pista
             </button>
+
             <button
               onClick={armSecondChance}
               disabled={
@@ -392,15 +394,14 @@ export default function Page() {
             </button>
 
             <button
-              onClick={() => alert("Tip: Diviertete y mira lo que puedo hacer... 😄")}
+              onClick={() => alert("Tip: Diviértete y mira lo que puedo hacer... 😄")}
               className='rounded-xl border border-slate-700 bg-slate-900/30 px-4 py-3 hover:border-slate-400'>
               ℹ️
             </button>
           </div>
         </section>
 
-        {/* Modal confirmación */}
-        {showConfirm && selected != null && (
+        {showConfirm && selected !== null && (
           <div className='fixed inset-0 bg-black/70 flex items-center justify-center p-4'>
             <div className='w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-950 p-4'>
               <div className='text-sm text-slate-300'>Confirmación</div>
