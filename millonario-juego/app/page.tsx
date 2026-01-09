@@ -282,7 +282,7 @@ export default function Page() {
           </div>
 
           <h1 className='mt-3 text-xl font-bold tracking-tight'>
-            ¿Quién quiere ser… mi novia? 😄
+            ¿Quién quiere ser… <span className='line-through'>Millo</span> Mi Novia? 😄
           </h1>
 
           <div className='mt-3 flex gap-2'>
@@ -392,9 +392,7 @@ export default function Page() {
             </button>
 
             <button
-              onClick={() =>
-                alert("Tip: personaliza preguntas con momentos de ustedes. 😄")
-              }
+              onClick={() => alert("Tip: Diviertete y mira lo que puedo hacer... 😄")}
               className='rounded-xl border border-slate-700 bg-slate-900/30 px-4 py-3 hover:border-slate-400'>
               ℹ️
             </button>
